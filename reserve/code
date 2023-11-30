@@ -1,0 +1,55 @@
+import sys
+from PyQt6.QtWidgets import QApplication, QMenu
+from PyQt6.QtGui import QCursor
+from pynput import mouse, keyboard
+
+# Global flag to check if Left Shift is held down
+is_shift_pressed = False
+
+def on_click(x, y, button, pressed):
+    global is_shift_pressed
+    # Check if left shift is held and right mouse button is clicked
+    if is_shift_pressed and button == mouse.Button.right and pressed:
+        show_context_menu(x, y)
+
+def on_press(key):
+    global is_shift_pressed
+    if key == keyboard.Key.shift_l:
+        is_shift_pressed = True
+
+def on_release(key):
+    global is_shift_pressed
+    if key == keyboard.Key.shift_l:
+        is_shift_pressed = False
+
+def transform_text(transformation):
+    # Log the selected transformation
+    print(f"Selected Transformation: {transformation}")
+
+def show_context_menu(x, y):
+    def on_menu_select(action):
+        if action.text() == "Exit":
+            sys.exit(0)
+        else:
+            transform_text(action.text().lower())
+
+    app = QApplication.instance()
+    if app is None:
+        app = QApplication(sys.argv)
+
+    menu = QMenu()
+    for action in ["Uppercase", "Lowercase", "Reverse", "Exit"]:
+        menu.addAction(action, lambda _, a=action: on_menu_select(menu.sender()))
+
+    menu.exec(QCursor.pos())
+
+# Running the keyboard and mouse listeners in separate threads
+keyboard_listener = keyboard.Listener(on_press=on_press, on_release=on_release)
+mouse_listener = mouse.Listener(on_click=on_click)
+
+keyboard_listener.start()
+mouse_listener.start()
+
+# Keep the main thread running
+keyboard_listener.join()
+mouse_listener.join()
