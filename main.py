@@ -1,17 +1,12 @@
 import sys
-import pyperclip  # Used for clipboard operations
+import pyperclip
 from PyQt6.QtWidgets import QApplication, QMainWindow, QMenu
-from PyQt6.QtGui import QCursor
+from PyQt6.QtGui import QIcon, QCursor
 from PyQt6.QtCore import pyqtSignal, QObject
 from pynput import mouse, keyboard
-import win32gui
-import win32api
-import win32con
-import win32gui
 import win32clipboard
 import win32con
 import pygetwindow as gw
-import pyperclip
 import pyautogui
 import time
 
@@ -24,7 +19,6 @@ class MainWindow(QMainWindow):
         self.click_signal = ClickSignal()
         self.click_signal.clicked.connect(self.show_context_menu)
         self.is_shift_pressed = False
-        self.selected_text = ""
 
     def on_click(self, x, y, button, pressed):
         if self.is_shift_pressed and button == mouse.Button.right and pressed:
@@ -40,11 +34,34 @@ class MainWindow(QMainWindow):
 
     def show_context_menu(self, x, y):
         menu = QMenu()
-        for action in ["Uppercase", "Lowercase", "Reverse", "Close", "Exit"]:
+        menu.setStyleSheet("""
+        QMenu {
+            background-color: #f0f0f0;
+            border: 1px solid black;
+        }
+        QMenu::item {
+            background-color: transparent;
+        }
+        QMenu::item:selected {
+            background-color: #a8d8ea;
+        }
+        """)
+
+        # Adding sub-menu for transformations
+        subMenu = menu.addMenu("Transformations")
+        for action, icon_path in [("Uppercase", "icons/uppercase.png"), ("Lowercase", "icons/lowercase.png"), ("Reverse", "icons/reverse.png")]:
+            act = subMenu.addAction(QIcon(icon_path), action)
+            act.setToolTip(f"Convert text to {action.lower()}")
+            act.triggered.connect(lambda _, a=action: self.menu_action_selected(a))
+
+        # Other actions
+        for action in ["Close", "Exit"]:
             act = menu.addAction(action)
             act.triggered.connect(lambda _, a=action: self.menu_action_selected(a))
+
         menu.exec(QCursor.pos())
- 
+
+
     def get_highlighted_text(self):
         win32clipboard.OpenClipboard()
         text = ""
@@ -61,7 +78,7 @@ class MainWindow(QMainWindow):
     
     
     def copy_without_clearing_clipboard(self):
-        # Save the current clipboard content
+        # Save the Current clipboard content
         original_clipboard = pyperclip.paste()
 
         # Simulate the Ctrl+C (copy) keyboard command
@@ -75,20 +92,10 @@ class MainWindow(QMainWindow):
 
         # If you want to restore the original content after some operations,
         # you can uncomment the following line
-        # pyperclip.copy(original_clipboard)
+        pyperclip.copy(original_clipboard)
 
         return new_clipboard
 
-
-    def transform_text(self,transformation,copied_text):
-        pyautogui.sleep(0.1)
-        if transformation == "uppercase":
-            transformed_text = copied_text.upper()
-        elif transformation == "lowercase":
-            transformed_text = copied_text.lower()
-        elif transformation == "reverse":
-            transformed_text = copied_text[::-1]
-        return transformed_text
 
     def menu_action_selected(self, action):
         if action == "Exit":
@@ -96,29 +103,37 @@ class MainWindow(QMainWindow):
         elif action == "Close":
             return
         else:
+            # Logic for other actions like Uppercase, Lowercase, and Reverse
             copied_text = self.copy_without_clearing_clipboard()
             print("Copied text:", copied_text)
-            transform_text = self.transform_text(action.lower(), copied_text)  # Corrected this line
-            print(f"transform_text >> {transform_text}")
-            pyautogui.write(transform_text)
-
-            # active_window_title = self.get_active_window_title()
-            # print(active_window_title)
-            
+            transformed_text = self.transform_text(action.lower(), copied_text)
+            print(f"Transformed text: {transformed_text}")
+            time.sleep(0.5)
+            pyautogui.write(transformed_text)
 
 
-app = QApplication(sys.argv)
-window = MainWindow()
+    def transform_text(self, transformation, copied_text):
+        # Logic for transforming text
+        if transformation == "uppercase":
+            return copied_text.upper()
+        elif transformation == "lowercase":
+            return copied_text.lower()
+        elif transformation == "reverse":
+            return copied_text[::-1]
 
-keyboard_listener = keyboard.Listener(
-    on_press=window.on_press, 
-    on_release=window.on_release
-)
-mouse_listener = mouse.Listener(
-    on_click=window.on_click
-)
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    window = MainWindow()
 
-keyboard_listener.start()
-mouse_listener.start()
+    keyboard_listener = keyboard.Listener(
+        on_press=window.on_press, 
+        on_release=window.on_release
+    )
+    mouse_listener = mouse.Listener(
+        on_click=window.on_click
+    )
 
-sys.exit(app.exec())
+    keyboard_listener.start()
+    mouse_listener.start()
+
+    sys.exit(app.exec())
