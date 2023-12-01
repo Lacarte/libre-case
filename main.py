@@ -9,6 +9,8 @@ import win32con
 import pygetwindow as gw
 import pyautogui
 import time
+import logging
+from utils import setup_logging
 
 class ClickSignal(QObject):
     clicked = pyqtSignal(int, int)
@@ -21,8 +23,10 @@ class MainWindow(QMainWindow):
         self.is_shift_pressed = False
 
     def on_click(self, x, y, button, pressed):
-        if self.is_shift_pressed and button == mouse.Button.right and pressed:
+        if pressed and self.is_shift_pressed and button == mouse.Button.right:
             self.click_signal.clicked.emit(x, y)
+            # Do not return False here; let the event propagate
+        return True
 
     def on_press(self, key):
         if key == keyboard.Key.shift_l:
@@ -47,19 +51,14 @@ class MainWindow(QMainWindow):
         }
         """)
 
-        # Adding sub-menu for transformations
-        subMenu = menu.addMenu("Transformations")
-        for action, icon_path in [("Uppercase", "icons/uppercase.png"), ("Lowercase", "icons/lowercase.png"), ("Reverse", "icons/reverse.png")]:
-            act = subMenu.addAction(QIcon(icon_path), action)
+        for action, icon_path in [("Uppercase", "icons/uppercase.png"), ("Lowercase", "icons/lowercase.png"), ("Reverse", "icons/reverse.png"), ("Close", "icons/close.png"), ("Exit", "icons/exit.png")]:
+            act = menu.addAction(QIcon(icon_path), action)
             act.setToolTip(f"Convert text to {action.lower()}")
             act.triggered.connect(lambda _, a=action: self.menu_action_selected(a))
 
-        # Other actions
-        for action in ["Close", "Exit"]:
-            act = menu.addAction(action)
-            act.triggered.connect(lambda _, a=action: self.menu_action_selected(a))
-
         menu.exec(QCursor.pos())
+        self.is_shift_pressed = False
+
 
 
     def get_highlighted_text(self):
@@ -80,8 +79,10 @@ class MainWindow(QMainWindow):
     def copy_without_clearing_clipboard(self):
         # Save the Current clipboard content
         original_clipboard = pyperclip.paste()
+        logging.info(f"original_clipboard : {original_clipboard}")
 
         # Simulate the Ctrl+C (copy) keyboard command
+        logging.info("Simulate the Ctrl+C (copy) keyboard command")
         pyautogui.hotkey('ctrl', 'c')
         
         # Wait a bit for the clipboard to update
@@ -89,6 +90,7 @@ class MainWindow(QMainWindow):
 
         # Get the new clipboard content
         new_clipboard = pyperclip.paste()
+        logging.info(f"new_clipboard : {new_clipboard}")
 
         # If you want to restore the original content after some operations,
         # you can uncomment the following line
@@ -105,9 +107,9 @@ class MainWindow(QMainWindow):
         else:
             # Logic for other actions like Uppercase, Lowercase, and Reverse
             copied_text = self.copy_without_clearing_clipboard()
-            print("Copied text:", copied_text)
+            logging.info(f"Copied text: {copied_text}")
             transformed_text = self.transform_text(action.lower(), copied_text)
-            print(f"Transformed text: {transformed_text}")
+            logging.info(f"Transformed text: {transformed_text}")
             time.sleep(0.5)
             pyautogui.write(transformed_text)
 
@@ -115,23 +117,22 @@ class MainWindow(QMainWindow):
     def transform_text(self, transformation, copied_text):
         # Logic for transforming text
         if transformation == "uppercase":
+            logging.info(f"Transforming to uppercase text: {copied_text}")
             return copied_text.upper()
         elif transformation == "lowercase":
+            logging.info(f"Transforming to lowercase text: {copied_text}")
             return copied_text.lower()
         elif transformation == "reverse":
+            logging.info(f"Transforming to reverse text: {copied_text}")
             return copied_text[::-1]
 
 if __name__ == "__main__":
+    setup_logging()
     app = QApplication(sys.argv)
     window = MainWindow()
 
-    keyboard_listener = keyboard.Listener(
-        on_press=window.on_press, 
-        on_release=window.on_release
-    )
-    mouse_listener = mouse.Listener(
-        on_click=window.on_click
-    )
+    keyboard_listener = keyboard.Listener(on_press=window.on_press, on_release=window.on_release)
+    mouse_listener = mouse.Listener(on_click=window.on_click)
 
     keyboard_listener.start()
     mouse_listener.start()
