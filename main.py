@@ -9,8 +9,14 @@ import win32con
 import pygetwindow as gw
 import pyautogui
 import time
+from PyQt6.QtCore import QEvent
 import logging
 from utils import setup_logging
+from datetime import datetime, timedelta
+from PyQt6.QtWidgets import QApplication, QMainWindow, QMenu
+from PyQt6.QtGui import QIcon, QCursor, QMouseEvent 
+from PyQt6.QtCore import pyqtSignal, QObject
+from PyQt6.QtCore import pyqtSignal, QObject, QTimer, QEvent
 
 class ClickSignal(QObject):
     clicked = pyqtSignal(int, int)
@@ -20,25 +26,36 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.click_signal = ClickSignal()
         self.click_signal.clicked.connect(self.show_context_menu)
-        self.is_shift_pressed = False
+
+        self.key_sequence = []
+        self.last_key_time = time.time()
 
     def on_click(self, x, y, button, pressed):
-        if pressed and self.is_shift_pressed and button == mouse.Button.right:
-            self.click_signal.clicked.emit(x, y)
-            # Do not return False here; let the event propagate
-        return True
+        # The mouse click handling remains the same as in your original script
+        logging.info("Click")
 
     def on_press(self, key):
-        if key == keyboard.Key.shift_l:
-            self.is_shift_pressed = True
+        current_time = time.time()
+        if current_time - self.last_key_time > 2:
+            self.key_sequence.clear()
+
+        if key == keyboard.Key.ctrl_l or key == keyboard.Key.ctrl_r:
+            self.key_sequence.append('ctrl')
+        elif key == keyboard.Key.shift:
+            self.key_sequence.append('shift')
+
+        self.last_key_time = current_time
 
     def on_release(self, key):
-        if key == keyboard.Key.shift_l:
-            self.is_shift_pressed = False
+        if len(self.key_sequence) == 3 and self.key_sequence == ['ctrl', 'ctrl', 'shift']:
+            x, y = pyautogui.position()
+            self.click_signal.clicked.emit(x, y)
+            self.key_sequence.clear()
 
     def show_context_menu(self, x, y):
-        menu = QMenu()
-        menu.setStyleSheet("""
+        self.menu = QMenu()
+        self.menu.installEventFilter(self)
+        self.menu.setStyleSheet("""
         QMenu {
             background-color: #f0f0f0;
             border: 1px solid black;
@@ -52,14 +69,27 @@ class MainWindow(QMainWindow):
         """)
 
         for action, icon_path in [("Uppercase", "icons/uppercase.png"), ("Lowercase", "icons/lowercase.png"), ("Reverse", "icons/reverse.png"), ("Close", "icons/close.png"), ("Exit", "icons/exit.png")]:
-            act = menu.addAction(QIcon(icon_path), action)
+            act = self.menu.addAction(QIcon(icon_path), action)
             act.setToolTip(f"Convert text to {action.lower()}")
             act.triggered.connect(lambda _, a=action: self.menu_action_selected(a))
 
-        menu.exec(QCursor.pos())
-        self.is_shift_pressed = False
+        self.menu.exec(QCursor.pos())
 
+    def eventFilter(self, source, event):
+        if source == self.menu:
+            if event.type() == QEvent.Type.FocusOut:
+                self.menu.close()
+                return True
+                
+            if event.type() == QEvent.Type.MouseButtonPress:
+                if not isinstance(event, QMouseEvent):
+                    return False
+                    
+                if not self.menu.geometry().contains(event.pos()):
+                    self.menu.close()
+                    return True
 
+        return super(MainWindow, self).eventFilter(source, event)
 
     def get_highlighted_text(self):
         win32clipboard.OpenClipboard()
@@ -132,9 +162,9 @@ if __name__ == "__main__":
     window = MainWindow()
 
     keyboard_listener = keyboard.Listener(on_press=window.on_press, on_release=window.on_release)
-    mouse_listener = mouse.Listener(on_click=window.on_click)
+    # mouse_listener = mouse.Listener(on_click=window.on_click)
 
     keyboard_listener.start()
-    mouse_listener.start()
+    # mouse_listener.start()
 
     sys.exit(app.exec())
