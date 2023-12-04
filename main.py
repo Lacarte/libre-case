@@ -54,7 +54,7 @@ class MainWindow(QMainWindow):
 
     def show_context_menu(self, x, y):
         self.menu = QMenu()
-        self.menu.installEventFilter(self)
+        # self.menu.installEventFilter(self)
         self.menu.setStyleSheet("""
         QMenu {
             background-color: #f0f0f0;
@@ -71,9 +71,21 @@ class MainWindow(QMainWindow):
         for action, icon_path in [("Uppercase", "icons/uppercase.png"), ("Lowercase", "icons/lowercase.png"), ("Reverse", "icons/reverse.png"), ("Close", "icons/close.png"), ("Exit", "icons/exit.png")]:
             act = self.menu.addAction(QIcon(icon_path), action)
             act.setToolTip(f"Convert text to {action.lower()}")
-            act.triggered.connect(lambda _, a=action: self.menu_action_selected(a))
+
+            # Connect each action to a specific method
+            if action == "Uppercase":
+                act.triggered.connect(lambda: self.menu_action_selected("uppercase"))
+            elif action == "Lowercase":
+                act.triggered.connect(lambda: self.menu_action_selected("lowercase"))
+            elif action == "Reverse":
+                act.triggered.connect(lambda: self.menu_action_selected("reverse"))
+            elif action == "Close":
+                act.triggered.connect(lambda: self.menu_action_selected("close"))
+            elif action == "Exit":
+                act.triggered.connect(lambda: self.menu_action_selected("exit"))
 
         self.menu.exec(QCursor.pos())
+
 
     def eventFilter(self, source, event):
         if source == self.menu:
@@ -130,17 +142,17 @@ class MainWindow(QMainWindow):
 
 
     def menu_action_selected(self, action):
-        if action == "Exit":
+        if action == "exit":
             sys.exit(0)
-        elif action == "Close":
+        elif action == "close":
             return
         else:
             # Logic for other actions like Uppercase, Lowercase, and Reverse
             copied_text = self.copy_without_clearing_clipboard()
             logging.info(f"Copied text: {copied_text}")
-            transformed_text = self.transform_text(action.lower(), copied_text)
+            transformed_text = self.transform_text(action, copied_text)
             logging.info(f"Transformed text: {transformed_text}")
-            time.sleep(0.5)
+            time.sleep(0.25)
             pyautogui.write(transformed_text)
 
 
@@ -157,6 +169,7 @@ class MainWindow(QMainWindow):
             return copied_text[::-1]
 
 if __name__ == "__main__":
+    logging.info(f"Initialize")
     setup_logging()
     app = QApplication(sys.argv)
     window = MainWindow()
