@@ -12,7 +12,7 @@ Ab Cd
 Sub x
 Ab-Cd
 count words
-count character
+count characters
 remove extraspace
 remove double line
 clear style

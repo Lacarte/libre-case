@@ -1,22 +1,16 @@
 import sys
 import pyperclip
-from PyQt6.QtWidgets import QApplication, QMainWindow, QMenu
-from PyQt6.QtGui import QIcon, QCursor
-from PyQt6.QtCore import pyqtSignal, QObject
-from pynput import mouse, keyboard
+from PyQt6.QtWidgets import QApplication, QSystemTrayIcon, QMenu, QMainWindow, QMessageBox
+from PyQt6.QtGui import QIcon, QAction, QCursor
+from PyQt6.QtCore import pyqtSignal, QObject, QProcess, QTimer
+from pynput import keyboard
 import win32clipboard
-import win32con
 import pygetwindow as gw
 import pyautogui
 import time
-from PyQt6.QtCore import QEvent
 import logging
-from utils import setup_logging
-from datetime import datetime, timedelta
-from PyQt6.QtWidgets import QApplication, QMainWindow, QMenu
-from PyQt6.QtGui import QIcon, QCursor, QMouseEvent 
-from PyQt6.QtCore import pyqtSignal, QObject
-from PyQt6.QtCore import pyqtSignal, QObject, QTimer, QEvent
+from utils import setup_logging, resource_path
+import win32con
 
 class ClickSignal(QObject):
     clicked = pyqtSignal(int, int)
@@ -24,6 +18,8 @@ class ClickSignal(QObject):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
+        self.initUI()
+
         self.click_signal = ClickSignal()
         self.click_signal.clicked.connect(self.show_context_menu)
 
@@ -52,9 +48,39 @@ class MainWindow(QMainWindow):
             self.click_signal.clicked.emit(x, y)
             self.key_sequence.clear()
 
+    def initUI(self):
+        self.tray_icon = QSystemTrayIcon(self)
+        self.tray_icon.setIcon(QIcon(resource_path("icons/icon.png")))
+
+        # Create a menu for the tray icon
+        tray_menu = QMenu()
+
+        # Change 'Close' action to 'Restart'
+        restart_action = QAction("Restart", self)
+        restart_action.triggered.connect(self.restart_application)
+        tray_menu.addAction(restart_action)
+
+        # Add 'Exit' action
+        exit_action = QAction("Exit", self)
+        exit_action.triggered.connect(self.exit_application)
+        tray_menu.addAction(exit_action)
+
+        self.tray_icon.setContextMenu(tray_menu)
+        self.tray_icon.show()
+
+    def restart_application(self):
+        # Restart the application
+        QApplication.quit()
+        QProcess.startDetached(sys.executable, sys.argv)
+
+
+    def exit_application(self):
+        # This method will be called when 'Exit' is clicked
+        QApplication.quit()  # Quit the application
+
+
     def show_context_menu(self, x, y):
         self.menu = QMenu()
-        # self.menu.installEventFilter(self)
         self.menu.setStyleSheet("""
         QMenu {
             background-color: #f0f0f0;
@@ -68,7 +94,14 @@ class MainWindow(QMainWindow):
         }
         """)
 
-        for action, icon_path in [("Uppercase", "icons/uppercase.png"), ("Lowercase", "icons/lowercase.png"), ("Reverse", "icons/reverse.png"), ("Close", "icons/close.png"), ("Exit", "icons/exit.png")]:
+        for action, icon_path in [
+            ("Uppercase", "icons/uppercase.png"),
+            ("Lowercase", "icons/lowercase.png"),
+            ("Title Case", "icons/titlecase.png"),  
+            ("Reverse", "icons/reverse.png"),
+            ("Count Words", "icons/count-word.png"),
+            ("Count Characters", "icons/count-characters.png"),
+        ]:
             act = self.menu.addAction(QIcon(icon_path), action)
             act.setToolTip(f"Convert text to {action.lower()}")
 
@@ -77,31 +110,44 @@ class MainWindow(QMainWindow):
                 act.triggered.connect(lambda: self.menu_action_selected("uppercase"))
             elif action == "Lowercase":
                 act.triggered.connect(lambda: self.menu_action_selected("lowercase"))
+            elif action == "Title Case":  # Add this block
+                    act.triggered.connect(lambda: self.menu_action_selected("titlecase"))
             elif action == "Reverse":
                 act.triggered.connect(lambda: self.menu_action_selected("reverse"))
-            elif action == "Close":
-                act.triggered.connect(lambda: self.menu_action_selected("close"))
-            elif action == "Exit":
-                act.triggered.connect(lambda: self.menu_action_selected("exit"))
+            elif action == "Count Words":
+                act.triggered.connect(lambda: self.menu_action_selected("count_words"))
+            elif action == "Count Characters":
+                act.triggered.connect(lambda: self.menu_action_selected("count_characters"))
+
+
+        more_transformations_menu = self.menu.addMenu("More Transformations")
+        more_transformations_menu.setIcon(QIcon("icons/more.png"))
+
+        for action, icon_path in [
+            ("Clear Format", "icons/clear-format.png"), 
+            ("Remove Double Lines", "icons/remove-double-lines.png"),
+            ("Remove Double Spaces", "icons/remove-double-space.png")
+        ]:
+            act = more_transformations_menu.addAction(QIcon(icon_path), action)
+            act.setToolTip(f"{action}")
+            # Connect each action to a specific method
+            if action == "Clear Format":
+                act.triggered.connect(lambda: self.menu_action_selected("clear_format"))
+            elif action == "Remove Double Lines":
+                act.triggered.connect(lambda: self.menu_action_selected("remove_double_lines"))
+            elif action == "Remove Double Spaces":
+                act.triggered.connect(lambda: self.menu_action_selected("remove_double_spaces"))
+
+
+         # Adding the 'Close Text Transformation' action at the end of the menu
+        close_action = QAction("Close Transformation", self)
+        close_action.setIcon(QIcon("icons/close.png"))
+        close_action.triggered.connect(lambda: self.menu_action_selected("close"))
+        self.menu.addAction(close_action)
+
 
         self.menu.exec(QCursor.pos())
 
-
-    def eventFilter(self, source, event):
-        if source == self.menu:
-            if event.type() == QEvent.Type.FocusOut:
-                self.menu.close()
-                return True
-                
-            if event.type() == QEvent.Type.MouseButtonPress:
-                if not isinstance(event, QMouseEvent):
-                    return False
-                    
-                if not self.menu.geometry().contains(event.pos()):
-                    self.menu.close()
-                    return True
-
-        return super(MainWindow, self).eventFilter(source, event)
 
     def get_highlighted_text(self):
         win32clipboard.OpenClipboard()
@@ -128,32 +174,48 @@ class MainWindow(QMainWindow):
         pyautogui.hotkey('ctrl', 'c')
         
         # Wait a bit for the clipboard to update
-        time.sleep(0.5)
+        time.sleep(0.25)
 
         # Get the new clipboard content
         new_clipboard = pyperclip.paste()
         logging.info(f"new_clipboard : {new_clipboard}")
 
+        # Check if the copied text is empty
+        if not new_clipboard.strip():
+            # Display message box if no text is copied
+            QMessageBox.information(self, "No Text Selected", "No text was selected or copied.")
+            return ""
+
         # If you want to restore the original content after some operations,
         # you can uncomment the following line
-        pyperclip.copy(original_clipboard)
+        # pyperclip.copy(original_clipboard)
 
         return new_clipboard
 
 
     def menu_action_selected(self, action):
-        if action == "exit":
-            sys.exit(0)
-        elif action == "close":
-            return
+        if action == "close":
+            return            
         else:
-            # Logic for other actions like Uppercase, Lowercase, and Reverse
             copied_text = self.copy_without_clearing_clipboard()
             logging.info(f"Copied text: {copied_text}")
             transformed_text = self.transform_text(action, copied_text)
             logging.info(f"Transformed text: {transformed_text}")
-            time.sleep(0.25)
-            pyautogui.write(transformed_text)
+            # Display the result in a message box for "count_words" and "count_characters"
+            if action in ["count_words", "count_characters"]:
+                title = ""
+                message = ""
+                if action == "count_words":
+                    title = "Word Count"
+                    message = f"The highlighted text contains {transformed_text} words."
+                elif action == "count_characters":
+                    title = "Character Count"
+                    message = f"The highlighted text contains {transformed_text} characters."
+                QMessageBox.information(self, title, message)
+            else:
+                # For other actions, continue with the existing logic
+                time.sleep(0.125)
+                pyautogui.write(transformed_text)
 
 
     def transform_text(self, transformation, copied_text):
@@ -164,9 +226,25 @@ class MainWindow(QMainWindow):
         elif transformation == "lowercase":
             logging.info(f"Transforming to lowercase text: {copied_text}")
             return copied_text.lower()
+        elif transformation == "titlecase":
+            logging.info(f"Transforming to title case text: {copied_text}")
+            return copied_text.title()
         elif transformation == "reverse":
             logging.info(f"Transforming to reverse text: {copied_text}")
             return copied_text[::-1]
+            # New transformations
+        elif transformation == "count_words":
+            return str(len(copied_text.split()))
+        elif transformation == "count_characters":
+            return str(len(copied_text))
+        elif transformation == "clear_format":
+            # Implement logic to clear format
+            pass
+        elif transformation == "remove_double_lines":
+            return '\n'.join(line for line in copied_text.splitlines() if line)
+        elif transformation == "remove_double_spaces":
+            return ' '.join(copied_text.split())
+
 
 if __name__ == "__main__":
     logging.info(f"Initialize")
