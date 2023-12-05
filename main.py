@@ -320,7 +320,8 @@ class MainWindow(QMainWindow):
             return str(len(copied_text))
         elif transformation == "clear_format":
             # Implement logic to clear format
-            pass
+            # pass
+            return "Not yet implemented"
         elif transformation == "remove_extra_lines":
             return '\n'.join(line for line in copied_text.splitlines() if line)
         elif transformation == "remove_extra_spaces":
