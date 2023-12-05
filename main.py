@@ -135,7 +135,7 @@ class MainWindow(QMainWindow):
 
     def get_last_log_content(self):
         # Assuming your logs are in the "logs" directory
-        log_directory = os.path.join(os.getcwd(), 'logs')
+        log_directory = resource_path('logs')
         list_of_logs = glob.glob(log_directory + '/*.log')  # or the extension your logs have
         if not list_of_logs:
             return "No logs found."
@@ -194,20 +194,32 @@ class MainWindow(QMainWindow):
 
         for action, icon_path in [
             ("Clear Format", "icons/clear-format.png"), 
-            ("Remove Double Lines", "icons/remove-double-lines.png"),
-            ("Remove Double Spaces", "icons/remove-double-space.png")
+            ("Remove Extra Lines", "icons/remove-extra-lines.png"),
+            ("Remove Extra Spaces", "icons/remove-extra-space.png"),
+            ("Sup", "icons/sup.png"),
+            ("Sub", "icons/sub.png"), 
+            ("Alternating", "icons/alternating.png"),  
+            ("Sentence Case", "icons/sentence-case.png"), 
+
         ]:
             act = more_transformations_menu.addAction(QIcon(resource_path(icon_path)), action)
             act.setToolTip(f"{action}")
             # Connect each action to a specific method
             if action == "Clear Format":
                 act.triggered.connect(lambda: self.menu_action_selected("clear_format"))
-            elif action == "Remove Double Lines":
-                act.triggered.connect(lambda: self.menu_action_selected("remove_double_lines"))
-            elif action == "Remove Double Spaces":
-                act.triggered.connect(lambda: self.menu_action_selected("remove_double_spaces"))
-
-
+            elif action == "Remove Extra Lines":
+                act.triggered.connect(lambda: self.menu_action_selected("remove_extra_lines"))
+            elif action == "Remove Extra Spaces":
+                act.triggered.connect(lambda: self.menu_action_selected("remove_extra_spaces"))
+            elif action == "Sup":
+                act.triggered.connect(lambda: self.menu_action_selected("sup"))
+            elif action == "Sub":
+                act.triggered.connect(lambda: self.menu_action_selected("sub"))
+            elif action == "Alternating":
+                act.triggered.connect(lambda: self.menu_action_selected("alternating"))
+            elif action == "Sentence Case":
+                act.triggered.connect(lambda: self.menu_action_selected("sentence_case"))
+    
          # Adding the 'Close Text Transformation' action at the end of the menu
         close_action = QAction("Close Transformation", self)
         close_action.setIcon(QIcon(resource_path("icons/close.png")))
@@ -309,10 +321,20 @@ class MainWindow(QMainWindow):
         elif transformation == "clear_format":
             # Implement logic to clear format
             pass
-        elif transformation == "remove_double_lines":
+        elif transformation == "remove_extra_lines":
             return '\n'.join(line for line in copied_text.splitlines() if line)
-        elif transformation == "remove_double_spaces":
+        elif transformation == "remove_extra_spaces":
             return ' '.join(copied_text.split())
+        elif transformation == "sup":
+            sup_map = str.maketrans("0123456789+-=()", "⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼⁽⁾")
+            return copied_text.translate(sup_map)
+        elif transformation == "sub":
+                return ''.join(['₍' + c + '₎' if c.isdigit() else c for c in copied_text])
+        elif transformation == "alternating":
+            return ''.join([c.lower() if i % 2 else c.upper() for i, c in enumerate(copied_text)])
+        elif transformation == "sentence_case":
+            return '. '.join([s.strip().capitalize() for s in copied_text.split('.')])
+
 
 
 if __name__ == "__main__":
