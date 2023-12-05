@@ -7,11 +7,11 @@ IF EXIST .venv (
     pushd .venv\Scripts
     
     :: Run your script using this venv's python.exe
-    python.exe ../../main.pyw
+    python.exe ../../main.py
     popd
 ) ELSE (
     :: Run your script using the system's python
-    python main.pyw
+    python main.py
 )
 
 pause

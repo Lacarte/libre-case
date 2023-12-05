@@ -11,6 +11,40 @@ import time
 import logging
 from utils import setup_logging, resource_path
 import win32con
+from PyQt6.QtWidgets import QDialog, QVBoxLayout, QTextEdit, QPushButton, QApplication, QMainWindow, QSystemTrayIcon, QMenu
+from PyQt6.QtGui import QIcon
+import os
+import glob
+
+class TextboxNotificationDialog(QDialog):
+
+    def __init__(self):
+        super().__init__()
+
+        # Set up the layout
+        layout = QVBoxLayout(self)
+
+        # Add a text edit box
+        self.textbox = QTextEdit(self)
+        layout.addWidget(self.textbox)
+
+        # Add a close button
+        close_button = QPushButton("Close", self)
+        close_button.clicked.connect(self.close)
+        layout.addWidget(close_button)
+
+        # Set dialog properties
+        self.setWindowTitle("Last Actions")
+        self.setFixedSize(480, 200)
+  
+    def set_text(self, text):
+        self.textbox.setPlainText(text)
+
+    def closeEvent(self, event):
+        # Override the close event to hide the dialog instead of closing it
+        self.hide()
+        event.ignore()
+
 
 class ClickSignal(QObject):
     clicked = pyqtSignal(int, int)
@@ -19,6 +53,8 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.initUI()
+        self.textboxDialog = None  # Dialog reference
+
 
         self.click_signal = ClickSignal()
         self.click_signal.clicked.connect(self.show_context_menu)
@@ -51,6 +87,8 @@ class MainWindow(QMainWindow):
     def initUI(self):
         self.tray_icon = QSystemTrayIcon(self)
         self.tray_icon.setIcon(QIcon(resource_path("icons/icon.png")))
+        self.tray_icon.setToolTip("Libre-Case") 
+        self.tray_icon.activated.connect(self.show_welcome_notification)
 
         # Create a menu for the tray icon
         tray_menu = QMenu()
@@ -66,6 +104,8 @@ class MainWindow(QMainWindow):
         tray_menu.addAction(exit_action)
 
         self.tray_icon.setContextMenu(tray_menu)
+        logging.info(f"Tooltip : {self.tray_icon.toolTip()}")
+
         self.tray_icon.show()
 
     def restart_application(self):
@@ -77,6 +117,35 @@ class MainWindow(QMainWindow):
     def exit_application(self):
         # This method will be called when 'Exit' is clicked
         QApplication.quit()  # Quit the application
+
+    def show_welcome_notification(self, reason):
+        if reason == QSystemTrayIcon.ActivationReason.Trigger:
+            if self.textboxDialog is None or not self.textboxDialog.isVisible():
+                self.textboxDialog = TextboxNotificationDialog()
+
+                # Load the last log file and set its content
+                log_content = self.get_last_log_content()
+                self.textboxDialog.set_text(log_content)
+
+                self.textboxDialog.show()
+            else:
+                # Bring the already opened dialog to the front
+                self.textboxDialog.raise_()
+                self.textboxDialog.activateWindow()
+
+    def get_last_log_content(self):
+        # Assuming your logs are in the "logs" directory
+        log_directory = os.path.join(os.getcwd(), 'logs')
+        list_of_logs = glob.glob(log_directory + '/*.log')  # or the extension your logs have
+        if not list_of_logs:
+            return "No logs found."
+
+        latest_log = max(list_of_logs, key=os.path.getmtime)
+        with open(latest_log, 'r') as file:
+            lines = file.readlines()
+            # Reverse the order of lines and join them back into a single string
+            return ''.join(reversed(lines))
+
 
 
     def show_context_menu(self, x, y):
@@ -102,7 +171,7 @@ class MainWindow(QMainWindow):
             ("Count Words", "icons/count-word.png"),
             ("Count Characters", "icons/count-characters.png"),
         ]:
-            act = self.menu.addAction(QIcon(icon_path), action)
+            act = self.menu.addAction(QIcon(resource_path(icon_path)), action)
             act.setToolTip(f"Convert text to {action.lower()}")
 
             # Connect each action to a specific method
@@ -121,14 +190,14 @@ class MainWindow(QMainWindow):
 
 
         more_transformations_menu = self.menu.addMenu("More Transformations")
-        more_transformations_menu.setIcon(QIcon("icons/more.png"))
+        more_transformations_menu.setIcon(QIcon(resource_path("icons/more.png")))
 
         for action, icon_path in [
             ("Clear Format", "icons/clear-format.png"), 
             ("Remove Double Lines", "icons/remove-double-lines.png"),
             ("Remove Double Spaces", "icons/remove-double-space.png")
         ]:
-            act = more_transformations_menu.addAction(QIcon(icon_path), action)
+            act = more_transformations_menu.addAction(QIcon(resource_path(icon_path)), action)
             act.setToolTip(f"{action}")
             # Connect each action to a specific method
             if action == "Clear Format":
@@ -141,7 +210,7 @@ class MainWindow(QMainWindow):
 
          # Adding the 'Close Text Transformation' action at the end of the menu
         close_action = QAction("Close Transformation", self)
-        close_action.setIcon(QIcon("icons/close.png"))
+        close_action.setIcon(QIcon(resource_path("icons/close.png")))
         close_action.triggered.connect(lambda: self.menu_action_selected("close"))
         self.menu.addAction(close_action)
 
@@ -173,7 +242,7 @@ class MainWindow(QMainWindow):
         logging.info("Simulate the Ctrl+C (copy) keyboard command")
         pyautogui.hotkey('ctrl', 'c')
         
-        # Wait a bit for the clipboard to update
+        # Wait a bit for the Clipboard, to update
         time.sleep(0.25)
 
         # Get the new clipboard content
@@ -247,8 +316,8 @@ class MainWindow(QMainWindow):
 
 
 if __name__ == "__main__":
-    logging.info(f"Initialize")
     setup_logging()
+    logging.info("Initializing the application")
     app = QApplication(sys.argv)
     window = MainWindow()
 
