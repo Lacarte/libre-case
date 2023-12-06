@@ -69,12 +69,15 @@ class MainWindow(QMainWindow):
     def on_press(self, key):
         current_time = time.time()
         if current_time - self.last_key_time > 2:
+            self.tray_icon.setIcon(QIcon(resource_path("icons/icon.png")))
             self.key_sequence.clear()
 
         if key == keyboard.Key.ctrl_l or key == keyboard.Key.ctrl_r:
             self.key_sequence.append('ctrl')
+            self.tray_icon.setIcon(QIcon(resource_path("icons/icon-red.png")))
         elif key == keyboard.Key.shift:
             self.key_sequence.append('shift')
+
 
         self.last_key_time = current_time
 
@@ -82,7 +85,9 @@ class MainWindow(QMainWindow):
         if len(self.key_sequence) == 3 and self.key_sequence == ['ctrl', 'ctrl', 'shift']:
             x, y = pyautogui.position()
             self.click_signal.clicked.emit(x, y)
+            self.tray_icon.setIcon(QIcon(resource_path("icons/icon-green.png")))
             self.key_sequence.clear()
+            
 
     def initUI(self):
         self.tray_icon = QSystemTrayIcon(self)
@@ -92,6 +97,12 @@ class MainWindow(QMainWindow):
 
         # Create a menu for the tray icon
         tray_menu = QMenu()
+
+        # Add 'Open Transformations' action
+        open_transformations_action = QAction("Open Transformations", self)
+        open_transformations_action.triggered.connect(self.open_transformations)
+        tray_menu.addAction(open_transformations_action)
+
 
         # Change 'Close' action to 'Restart'
         restart_action = QAction("Restart", self)
@@ -104,9 +115,14 @@ class MainWindow(QMainWindow):
         tray_menu.addAction(exit_action)
 
         self.tray_icon.setContextMenu(tray_menu)
-        logging.info(f"Tooltip : {self.tray_icon.toolTip()}")
+        # logging.info(f"Tooltip : {self.tray_icon.toolTip()}")
 
         self.tray_icon.show()
+
+    def open_transformations(self):
+        # Function to open the context menu programmatically
+        x, y = pyautogui.position()
+        self.show_context_menu(x, y)
 
     def restart_application(self):
         # Restart the application
@@ -167,9 +183,8 @@ class MainWindow(QMainWindow):
             ("Uppercase", "icons/uppercase.png"),
             ("Lowercase", "icons/lowercase.png"),
             ("Title Case", "icons/titlecase.png"),  
+            ("Sentence Case", "icons/sentence-case.png"),
             ("Reverse", "icons/reverse.png"),
-            ("Count Words", "icons/count-word.png"),
-            ("Count Characters", "icons/count-characters.png"),
         ]:
             act = self.menu.addAction(QIcon(resource_path(icon_path)), action)
             act.setToolTip(f"Convert text to {action.lower()}")
@@ -179,53 +194,56 @@ class MainWindow(QMainWindow):
                 act.triggered.connect(lambda: self.menu_action_selected("uppercase"))
             elif action == "Lowercase":
                 act.triggered.connect(lambda: self.menu_action_selected("lowercase"))
+            elif action == "Sentence Case":
+                act.triggered.connect(lambda: self.menu_action_selected("sentence_case"))
             elif action == "Title Case":  # Add this block
                     act.triggered.connect(lambda: self.menu_action_selected("titlecase"))
             elif action == "Reverse":
                 act.triggered.connect(lambda: self.menu_action_selected("reverse"))
-            elif action == "Count Words":
-                act.triggered.connect(lambda: self.menu_action_selected("count_words"))
-            elif action == "Count Characters":
-                act.triggered.connect(lambda: self.menu_action_selected("count_characters"))
 
 
         more_transformations_menu = self.menu.addMenu("More Transformations")
         more_transformations_menu.setIcon(QIcon(resource_path("icons/more.png")))
 
         for action, icon_path in [
-            ("Clear Format", "icons/clear-format.png"), 
-            ("Remove Extra Lines", "icons/remove-extra-lines.png"),
-            ("Remove Extra Spaces", "icons/remove-extra-space.png"),
-            ("Sup", "icons/sup.png"),
-            ("Sub", "icons/sub.png"), 
-            ("Alternating", "icons/alternating.png"),  
-            ("Sentence Case", "icons/sentence-case.png"), 
-
+        ("Remove Extra Lines", "icons/remove-extra-lines.png"),
+        ("Remove Extra Spaces", "icons/remove-extra-space.png"),
+        ("Count Words", "icons/count-word.png"),
+        ("Count Characters", "icons/count-characters.png"),
+        ("Alternating", "icons/alternating.png"),
+        ("InvertCase", "icons/invert-case.png"),
+        ("Clear Format", "icons/clear-format.png"),
+        ("Sup", "icons/sup.png"),
+        ("Sub", "icons/sub.png")
         ]:
             act = more_transformations_menu.addAction(QIcon(resource_path(icon_path)), action)
             act.setToolTip(f"{action}")
             # Connect each action to a specific method
-            if action == "Clear Format":
-                act.triggered.connect(lambda: self.menu_action_selected("clear_format"))
-            elif action == "Remove Extra Lines":
+
+            if action == "Remove Extra Lines":
                 act.triggered.connect(lambda: self.menu_action_selected("remove_extra_lines"))
             elif action == "Remove Extra Spaces":
                 act.triggered.connect(lambda: self.menu_action_selected("remove_extra_spaces"))
+            elif action == "Count Words":
+                act.triggered.connect(lambda: self.menu_action_selected("count_words"))
+            elif action == "Count Characters":
+                act.triggered.connect(lambda: self.menu_action_selected("count_characters"))
+            elif action == "Alternating":
+                act.triggered.connect(lambda: self.menu_action_selected("alternating"))
+            elif action == "InvertCase":
+                act.triggered.connect(lambda: self.menu_action_selected("invert_case"))
+            elif action == "Clear Format":
+                act.triggered.connect(lambda: self.menu_action_selected("clear_format"))
             elif action == "Sup":
                 act.triggered.connect(lambda: self.menu_action_selected("sup"))
             elif action == "Sub":
                 act.triggered.connect(lambda: self.menu_action_selected("sub"))
-            elif action == "Alternating":
-                act.triggered.connect(lambda: self.menu_action_selected("alternating"))
-            elif action == "Sentence Case":
-                act.triggered.connect(lambda: self.menu_action_selected("sentence_case"))
-    
+
          # Adding the 'Close Text Transformation' action at the end of the menu
         close_action = QAction("Close Transformation", self)
         close_action.setIcon(QIcon(resource_path("icons/close.png")))
         close_action.triggered.connect(lambda: self.menu_action_selected("close"))
         self.menu.addAction(close_action)
-
 
         self.menu.exec(QCursor.pos())
 
@@ -295,8 +313,11 @@ class MainWindow(QMainWindow):
                 QMessageBox.information(self, title, message)
             else:
                 # For other actions, continue with the existing logic
-                time.sleep(0.125)
-                pyautogui.write(transformed_text)
+                # Copy the transformed text to the clipboard
+                pyperclip.copy(transformed_text)
+
+                # Simulate the Ctrl+V (paste) keyboard command
+                pyautogui.hotkey('ctrl', 'v')
 
 
     def transform_text(self, transformation, copied_text):
@@ -335,6 +356,11 @@ class MainWindow(QMainWindow):
             return ''.join([c.lower() if i % 2 else c.upper() for i, c in enumerate(copied_text)])
         elif transformation == "sentence_case":
             return '. '.join([s.strip().capitalize() for s in copied_text.split('.')])
+        elif transformation == "invert_case":
+            return invert_case(copied_text)
+   
+def invert_case(text):
+    return ''.join([char.lower() if char.isupper() else char.upper() for char in text])
 
 
 
