@@ -59,7 +59,6 @@ class MainWindow(QMainWindow):
         self.initUI()
         self.textboxDialog = None  # Dialog reference
 
-
         self.click_signal = ClickSignal()
         self.click_signal.clicked.connect(self.show_context_menu)
 
@@ -73,13 +72,18 @@ class MainWindow(QMainWindow):
     def on_press(self, key):
         current_time = time.time()
         logger.info("current_time - self.last_key_time  " + str(current_time - self.last_key_time))
-        if current_time - self.last_key_time > 2.5:
+        if current_time - self.last_key_time > 0.7:
             self.tray_icon.setIcon(QIcon(resource_path("icons/icon.png")))
             self.key_sequence.clear()
 
         if key == keyboard.Key.ctrl_l or key == keyboard.Key.ctrl_r:
             self.key_sequence.append('ctrl')
             self.tray_icon.setIcon(QIcon(resource_path("icons/icon-red.png")))
+            if len(self.key_sequence) >= 3: 
+                self.key_sequence.clear()
+                self.key_sequence = ['ctrl']
+            if self.key_sequence == ['ctrl', 'ctrl'] : 
+                self.tray_icon.setIcon(QIcon(resource_path("icons/icon-yellow.png")))
         elif key == keyboard.Key.shift:
             self.key_sequence.append('shift')
 
@@ -169,6 +173,12 @@ class MainWindow(QMainWindow):
             return ''.join(reversed(lines))
 
     def show_context_menu(self, x, y):
+            # Check if a menu already exists. If it does, bring it to the front instead of creating a new one.
+        if hasattr(self, 'menu') and self.menu is not None:
+            self.menu.hide()  # Optionally hide the existing menu before showing it again, depending on desired behavior.
+            self.menu.exec(QCursor.pos())
+            return
+
         self.menu = QMenu()
         self.menu.setStyleSheet("""
         QMenu {
@@ -244,13 +254,12 @@ class MainWindow(QMainWindow):
                 act.triggered.connect(lambda: self.menu_action_selected("sub"))
 
          # Adding the 'Close Text Transformation' action at the end of the menu
-        close_action = QAction("Close Transformation", self)
-        close_action.setIcon(QIcon(resource_path("icons/close.png")))
+        close_action = QAction("", self)
+        close_action.setIcon(QIcon(resource_path("icons/hide.png")))
         close_action.triggered.connect(lambda: self.menu_action_selected("close"))
         self.menu.addAction(close_action)
 
         self.menu.exec(QCursor.pos())
-
 
     def get_highlighted_text(self):
         win32clipboard.OpenClipboard()
