@@ -16,6 +16,10 @@ from PyQt6.QtGui import QIcon
 import os
 import glob
 
+
+
+logger = setup_logging()
+
 class TextboxNotificationDialog(QDialog):
 
     def __init__(self):
@@ -61,14 +65,15 @@ class MainWindow(QMainWindow):
 
         self.key_sequence = []
         self.last_key_time = time.time()
-
+        logger.info("self.last_key_time: " + str(self.last_key_time))
     def on_click(self, x, y, button, pressed):
         # The mouse click handling remains the same as in your original script
         logging.info("Click")
 
     def on_press(self, key):
         current_time = time.time()
-        if current_time - self.last_key_time > 2:
+        logger.info("current_time - self.last_key_time  " + str(current_time - self.last_key_time))
+        if current_time - self.last_key_time > 2.5:
             self.tray_icon.setIcon(QIcon(resource_path("icons/icon.png")))
             self.key_sequence.clear()
 
@@ -78,7 +83,7 @@ class MainWindow(QMainWindow):
         elif key == keyboard.Key.shift:
             self.key_sequence.append('shift')
 
-
+        logger.info("press append keys : " + str(self.key_sequence))
         self.last_key_time = current_time
 
     def on_release(self, key):
@@ -86,6 +91,7 @@ class MainWindow(QMainWindow):
             x, y = pyautogui.position()
             self.click_signal.clicked.emit(x, y)
             self.tray_icon.setIcon(QIcon(resource_path("icons/icon-green.png")))
+            logger.info("Open Menu on Release")
             self.key_sequence.clear()
             
 
@@ -161,8 +167,6 @@ class MainWindow(QMainWindow):
             lines = file.readlines()
             # Reverse the order of lines and join them back into a single string
             return ''.join(reversed(lines))
-
-
 
     def show_context_menu(self, x, y):
         self.menu = QMenu()

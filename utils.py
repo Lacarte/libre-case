@@ -3,29 +3,51 @@ import os
 import configparser
 from datetime import datetime
 import logging
+from loguru import logger
 
 
-def resource_path(relative_path):
-    """ Get absolute path to resource, works for dev and for PyInstaller """
+def resource_path(*path_parts):
+    """Construct a file path from parts."""
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), *path_parts)
+
+
+def create_directory(path, dir_name=None):
+    """Create a directory if it doesn't exist."""
+    # Use the provided dir_name to form full_path, or just use path if dir_name is None
+    full_path = os.path.join(path, dir_name) if dir_name else path
+
     try:
-        # PyInstaller creates a temp folder and stores path in _MEIPASS
-        base_path = sys._MEIPASS
-    except Exception:
-        # Use the directory of the script file as the base path
-        base_path = os.path.dirname(os.path.abspath(__file__))
-    return os.path.join(base_path, relative_path)
+        if not os.path.exists(full_path):
+            os.makedirs(full_path)
+            #logging.info(f"Directory created: {full_path}")
+        else:
+            logging.info(f"Directory already exists: {full_path}")
+            #print(f"Directory already exists: {full_path}")
+        return full_path  # Returning the full path might be useful for the caller
+    except OSError as error:
+        #logging.error(f"Error creating directory {full_path}: {error}")
+        raise  # Re-raise the exception to handle it on a higher level
 
 
 def setup_logging():
-    logs_path = create_directory("logs")
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(levelname)s - %(message)s",
-        handlers=[
-            logging.FileHandler(os.path.join(logs_path, f"log-{datetime.now().strftime('%Y-%m-%d')}.log"), mode="w", encoding='utf-8'),
-            logging.StreamHandler(),
+    logs_path = create_directory(resource_path("logs"))
+    log_filename = os.path.join(logs_path, f"log-{datetime.now().strftime('%Y-%m-%d')}.log")
+    
+    # Configure Loguru logger
+    config = {
+        "handlers": [
+            {"sink": log_filename, "level": "INFO"},
+            {"sink": sys.stdout, "level": "INFO"}
         ],
-    )
+        "extra": {"user": "someone"}
+    }
+    
+    logger.configure(**config)
+    
+    # Add a message to verify that logging has been set up
+    logger.info("\nLogging setup complete with Loguru ")
+    
+    return logger
 
 
 
