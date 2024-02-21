@@ -20,8 +20,12 @@
   
 ### To backup libraries
 
-    pip freeze > requirements.txt
-
+#### Only top dependencies 
+    pip install pipdeptree
+     
+    pipdeptree -f --warn silence | findstr  /r  "^[a-zA-Z0-9\-]" > requirements.txt
+  
+    pipdeptree --warn silence --freeze  --warn silence | grep -v '^\s' > requirements.txt
   
 ### To install libraries
 
