@@ -76,6 +76,7 @@ class MainWindow(QMainWindow):
             self.tray_icon.setIcon(QIcon(resource_path("icons/icon.png")))
             self.key_sequence.clear()
 
+
         if key == keyboard.Key.ctrl_l or key == keyboard.Key.ctrl_r:
             self.key_sequence.append('ctrl')
             self.tray_icon.setIcon(QIcon(resource_path("icons/icon-red.png")))
@@ -87,6 +88,7 @@ class MainWindow(QMainWindow):
         elif key == keyboard.Key.shift:
             self.key_sequence.append('shift')
 
+
         logger.info("press append keys : " + str(self.key_sequence))
         self.last_key_time = current_time
 
@@ -97,7 +99,21 @@ class MainWindow(QMainWindow):
             self.tray_icon.setIcon(QIcon(resource_path("icons/icon-green.png")))
             logger.info("Open Menu on Release")
             self.key_sequence.clear()
-            
+ 
+        if key == keyboard.Key.esc:
+            # TODO to fix implementation of esc to close the menu(problem if crash the app and leave the shape or shadow of the menu remains on the screen after hiding it) 
+            # self.close_menu_if_open()  # Call the method to close the menu if it's open
+            self.tray_icon.setIcon(QIcon(resource_path("icons/icon.png")))
+            logging.info("Cancel")
+            self.key_sequence.clear()
+            return  # Exit the method to avoid processing further
+        
+
+    def close_menu_if_open(self):
+        if hasattr(self, 'menu') and self.menu.isVisible():
+            self.menu.hide()  # Continue using hide instead of close
+            self.tray_icon.hide()  # Hide the system tray icon
+            QTimer.singleShot(100, lambda: self.tray_icon.show())  # Then show it again after a short delay
 
     def initUI(self):
         self.tray_icon = QSystemTrayIcon(self)
