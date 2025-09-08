@@ -16,8 +16,6 @@ from PyQt6.QtGui import QIcon
 import os
 import glob
 
-
-
 logger = setup_logging()
 
 class TextboxNotificationDialog(QDialog):
@@ -56,6 +54,12 @@ class ClickSignal(QObject):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
+        
+        # Force Qt to use a specific style that works better with custom stylesheets
+        app = QApplication.instance()
+        if app:
+            app.setStyle('Fusion')  # This helps with custom stylesheet rendering
+        
         self.initUI()
         self.textboxDialog = None  # Dialog reference
 
@@ -64,18 +68,18 @@ class MainWindow(QMainWindow):
 
         self.key_sequence = []
         self.last_key_time = time.time()
-        logger.info("self.last_key_time: " + str(self.last_key_time))
+        # logger.info("self.last_key_time: " + str(self.last_key_time))
+        
     def on_click(self, x, y, button, pressed):
         # The mouse click handling remains the same as in your original script
         logging.info("Click")
 
     def on_press(self, key):
         current_time = time.time()
-        logger.info("current_time - self.last_key_time  " + str(current_time - self.last_key_time))
+        # logger.info("current_time - self.last_key_time  " + str(current_time - self.last_key_time))
         if current_time - self.last_key_time > 0.7:
             self.tray_icon.setIcon(QIcon(resource_path("icons/icon.png")))
             self.key_sequence.clear()
-
 
         if key == keyboard.Key.ctrl_l or key == keyboard.Key.ctrl_r:
             self.key_sequence.append('ctrl')
@@ -88,8 +92,7 @@ class MainWindow(QMainWindow):
         elif key == keyboard.Key.shift:
             self.key_sequence.append('shift')
 
-
-        logger.info("press append keys : " + str(self.key_sequence))
+        # logger.info("press append keys : " + str(self.key_sequence))
         self.last_key_time = current_time
 
     def on_release(self, key):
@@ -107,7 +110,6 @@ class MainWindow(QMainWindow):
             logging.info("Cancel")
             self.key_sequence.clear()
             return  # Exit the method to avoid processing further
-        
 
     def close_menu_if_open(self):
         if hasattr(self, 'menu') and self.menu.isVisible():
@@ -128,7 +130,6 @@ class MainWindow(QMainWindow):
         open_transformations_action = QAction("Open Transformations", self)
         open_transformations_action.triggered.connect(self.open_transformations)
         tray_menu.addAction(open_transformations_action)
-
 
         # Change 'Close' action to 'Restart'
         restart_action = QAction("Restart", self)
@@ -154,7 +155,6 @@ class MainWindow(QMainWindow):
         # Restart the application
         QApplication.quit()
         QProcess.startDetached(sys.executable, sys.argv)
-
 
     def exit_application(self):
         # This method will be called when 'Exit' is clicked
@@ -189,23 +189,61 @@ class MainWindow(QMainWindow):
             return ''.join(reversed(lines))
 
     def show_context_menu(self, x, y):
-            # Check if a menu already exists. If it does, bring it to the front instead of creating a new one.
+        # Check if a menu already exists. If it does, bring it to the front instead of creating a new one.
         if hasattr(self, 'menu') and self.menu is not None:
             self.menu.hide()  # Optionally hide the existing menu before showing it again, depending on desired behavior.
             self.menu.exec(QCursor.pos())
             return
 
         self.menu = QMenu()
+        
+        # Enhanced stylesheet with more specific selectors and Windows 11 compatibility
         self.menu.setStyleSheet("""
         QMenu {
-            background-color: #f0f0f0;
-            border: 1px solid black;
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 8px 0px;
+            font-size: 14px;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.15);
         }
         QMenu::item {
             background-color: transparent;
+            padding: 8px 16px;
+            margin: 2px 8px;
+            border-radius: 4px;
+            color: #212529;
+            min-width: 180px;
         }
         QMenu::item:selected {
-            background-color: #a8d8ea;
+            background-color: #0d6efd;
+            color: white;
+        }
+        QMenu::item:pressed {
+            background-color: #0b5ed7;
+            color: white;
+        }
+        QMenu::item:disabled {
+            background-color: transparent;
+            color: #6c757d;
+        }
+        QMenu::separator {
+            height: 1px;
+            background-color: #dee2e6;
+            margin: 4px 8px;
+        }
+        QMenu::indicator {
+            width: 16px;
+            height: 16px;
+            margin-left: 4px;
+        }
+        /* Submenu styling */
+        QMenu QMenu {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            margin-left: 2px;
         }
         """)
 
@@ -231,9 +269,37 @@ class MainWindow(QMainWindow):
             elif action == "Reverse":
                 act.triggered.connect(lambda: self.menu_action_selected("reverse"))
 
-
         more_transformations_menu = self.menu.addMenu("More Transformations")
         more_transformations_menu.setIcon(QIcon(resource_path("icons/more.png")))
+
+        # Apply the same styling to the submenu
+        more_transformations_menu.setStyleSheet("""
+        QMenu {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 8px 0px;
+            font-size: 14px;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        QMenu::item {
+            background-color: transparent;
+            padding: 8px 16px;
+            margin: 2px 8px;
+            border-radius: 4px;
+            color: #212529;
+            min-width: 180px;
+        }
+        QMenu::item:selected {
+            background-color: #0d6efd;
+            color: white;
+        }
+        QMenu::item:pressed {
+            background-color: #0b5ed7;
+            color: white;
+        }
+        """)
 
         for action, icon_path in [
         ("Remove Extra Lines", "icons/remove-extra-lines.png"),
@@ -291,7 +357,6 @@ class MainWindow(QMainWindow):
         active_window = gw.getActiveWindow()
         return active_window.title if active_window else None
     
-    
     def copy_without_clearing_clipboard(self):
         # Save the Current clipboard content
         original_clipboard = pyperclip.paste()
@@ -320,7 +385,6 @@ class MainWindow(QMainWindow):
 
         return new_clipboard
 
-
     def menu_action_selected(self, action):
         if action == "close":
             return            
@@ -347,7 +411,6 @@ class MainWindow(QMainWindow):
 
                 # Simulate the Ctrl+V (paste) keyboard command
                 pyautogui.hotkey('ctrl', 'v')
-
 
     def transform_text(self, transformation, copied_text):
         # Logic for transforming text
@@ -380,7 +443,7 @@ class MainWindow(QMainWindow):
             sup_map = str.maketrans("0123456789+-=()", "⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼⁽⁾")
             return copied_text.translate(sup_map)
         elif transformation == "sub":
-                return ''.join(['₍' + c + '₎' if c.isdigit() else c for c in copied_text])
+                return ''.join(['₀₁₂₃₄₅₆₇₈₉'[int(c)] if c.isdigit() else c for c in copied_text])
         elif transformation == "alternating":
             return ''.join([c.lower() if i % 2 else c.upper() for i, c in enumerate(copied_text)])
         elif transformation == "sentence_case":
@@ -390,8 +453,6 @@ class MainWindow(QMainWindow):
    
 def invert_case(text):
     return ''.join([char.lower() if char.isupper() else char.upper() for char in text])
-
-
 
 if __name__ == "__main__":
     setup_logging()
