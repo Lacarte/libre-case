@@ -18,6 +18,38 @@ import glob
 
 logger = setup_logging()
 
+# AI Helper Prompts Configuration
+AI_PROMPTS = {
+    "improve_writing": "Improve the writing of the following text while maintaining its meaning and tone:\n\n",
+    "fix_spelling_grammar": "Fix all spelling and grammar errors in the following text:\n\n",
+    "make_longer": "Make the following text longer while keeping the same meaning and style:\n\n",
+    "make_shorter": "Make the following text shorter and more concise while preserving the key message:\n\n",
+    "simplify": "Simplify the following text to make it easier to understand:\n\n",
+    "explain": "Explain the following text in simple terms:\n\n",
+    "summarize": "Summarize the following text:\n\n",
+    # Translate prompts
+    "translate_french": "Translate the following text to French:\n\n",
+    "translate_english": "Translate the following text to English:\n\n",
+    "translate_spanish": "Translate the following text to Spanish:\n\n",
+    "translate_german": "Translate the following text to German:\n\n",
+    "translate_portuguese": "Translate the following text to Portuguese:\n\n",
+    "translate_italian": "Translate the following text to Italian:\n\n",
+    "translate_chinese": "Translate the following text to Chinese:\n\n",
+    "translate_japanese": "Translate the following text to Japanese:\n\n",
+    "translate_korean": "Translate the following text to Korean:\n\n",
+    "translate_arabic": "Translate the following text to Arabic:\n\n",
+    "translate_russian": "Translate the following text to Russian:\n\n",
+    "translate_kreyol": "Translate the following text to Haitian Creole (Kreyòl):\n\n",
+    # Tone prompts
+    "tone_professional": "Rewrite the following text in a professional tone:\n\n",
+    "tone_casual": "Rewrite the following text in a casual, friendly tone:\n\n",
+    "tone_formal": "Rewrite the following text in a formal tone:\n\n",
+    "tone_confident": "Rewrite the following text in a confident, assertive tone:\n\n",
+    "tone_friendly": "Rewrite the following text in a warm, friendly tone:\n\n",
+    "tone_diplomatic": "Rewrite the following text in a diplomatic, tactful tone:\n\n",
+}
+
+
 class TextboxNotificationDialog(QDialog):
 
     def __init__(self):
@@ -188,6 +220,36 @@ class MainWindow(QMainWindow):
             # Reverse the order of lines and join them back into a single string
             return ''.join(reversed(lines))
 
+    def get_submenu_stylesheet(self):
+        """Return the stylesheet for submenus"""
+        return """
+        QMenu {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 8px 0px;
+            font-size: 14px;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        QMenu::item {
+            background-color: transparent;
+            padding: 8px 16px;
+            margin: 2px 8px;
+            border-radius: 4px;
+            color: #212529;
+            min-width: 180px;
+        }
+        QMenu::item:selected {
+            background-color: #0d6efd;
+            color: white;
+        }
+        QMenu::item:pressed {
+            background-color: #0b5ed7;
+            color: white;
+        }
+        """
+
     def show_context_menu(self, x, y):
         # Check if a menu already exists. If it does, bring it to the front instead of creating a new one.
         if hasattr(self, 'menu') and self.menu is not None:
@@ -269,37 +331,99 @@ class MainWindow(QMainWindow):
             elif action == "Reverse":
                 act.triggered.connect(lambda: self.menu_action_selected("reverse"))
 
+        # ============================================
+        # AI HELPER SUBMENU
+        # ============================================
+        self.menu.addSeparator()
+        
+        ai_helper_menu = self.menu.addMenu("✨ AI Helper")
+        ai_helper_menu.setIcon(QIcon(resource_path("icons/ai-helper.png")))
+        ai_helper_menu.setStyleSheet(self.get_submenu_stylesheet())
+
+        # --- Suggested Section ---
+        # Improve Writing
+        act_improve = ai_helper_menu.addAction("✨ Improve writing")
+        act_improve.triggered.connect(lambda: self.ai_action_selected("improve_writing"))
+
+        # Fix spelling & grammar
+        act_fix = ai_helper_menu.addAction("✓ Fix spelling & grammar")
+        act_fix.triggered.connect(lambda: self.ai_action_selected("fix_spelling_grammar"))
+
+        # Translate to submenu
+        translate_menu = ai_helper_menu.addMenu("🌐 Translate to")
+        translate_menu.setStyleSheet(self.get_submenu_stylesheet())
+        
+        languages = [
+            ("English", "translate_english"),
+            ("French", "translate_french"),
+            ("Spanish", "translate_spanish"),
+            ("German", "translate_german"),
+            ("Portuguese", "translate_portuguese"),
+            ("Italian", "translate_italian"),
+            ("Chinese", "translate_chinese"),
+            ("Japanese", "translate_japanese"),
+            ("Korean", "translate_korean"),
+            ("Arabic", "translate_arabic"),
+            ("Russian", "translate_russian"),
+            ("Kreyòl", "translate_kreyol"),
+        ]
+        
+        for lang_name, lang_action in languages:
+            act_lang = translate_menu.addAction(lang_name)
+            # Use default argument to capture the current value
+            act_lang.triggered.connect(lambda checked, action=lang_action: self.ai_action_selected(action))
+
+        ai_helper_menu.addSeparator()
+
+        # --- Edit Section ---
+        # Make longer
+        act_longer = ai_helper_menu.addAction("📝 Make longer")
+        act_longer.triggered.connect(lambda: self.ai_action_selected("make_longer"))
+
+        # Make shorter
+        act_shorter = ai_helper_menu.addAction("📄 Make shorter")
+        act_shorter.triggered.connect(lambda: self.ai_action_selected("make_shorter"))
+
+        # Change tone submenu
+        tone_menu = ai_helper_menu.addMenu("🎭 Change tone")
+        tone_menu.setStyleSheet(self.get_submenu_stylesheet())
+        
+        tones = [
+            ("Professional", "tone_professional"),
+            ("Casual", "tone_casual"),
+            ("Formal", "tone_formal"),
+            ("Confident", "tone_confident"),
+            ("Friendly", "tone_friendly"),
+            ("Diplomatic", "tone_diplomatic"),
+        ]
+        
+        for tone_name, tone_action in tones:
+            act_tone = tone_menu.addAction(tone_name)
+            act_tone.triggered.connect(lambda checked, action=tone_action: self.ai_action_selected(action))
+
+        # Simplify language
+        act_simplify = ai_helper_menu.addAction("📖 Simplify language")
+        act_simplify.triggered.connect(lambda: self.ai_action_selected("simplify"))
+
+        ai_helper_menu.addSeparator()
+
+        # --- Other ---
+        # Explain
+        act_explain = ai_helper_menu.addAction("💡 Explain")
+        act_explain.triggered.connect(lambda: self.ai_action_selected("explain"))
+
+        # Summarize
+        act_summarize = ai_helper_menu.addAction("📋 Summarize")
+        act_summarize.triggered.connect(lambda: self.ai_action_selected("summarize"))
+
+        # ============================================
+        # MORE TRANSFORMATIONS SUBMENU (existing)
+        # ============================================
         more_transformations_menu = self.menu.addMenu("More Transformations")
         more_transformations_menu.setIcon(QIcon(resource_path("icons/more.png")))
 
         # Apply the same styling to the submenu
-        more_transformations_menu.setStyleSheet("""
-        QMenu {
-            background-color: #f8f9fa;
-            border: 1px solid #dee2e6;
-            border-radius: 8px;
-            padding: 8px 0px;
-            font-size: 14px;
-            font-family: 'Segoe UI', Arial, sans-serif;
-            box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.15);
-        }
-        QMenu::item {
-            background-color: transparent;
-            padding: 8px 16px;
-            margin: 2px 8px;
-            border-radius: 4px;
-            color: #212529;
-            min-width: 180px;
-        }
-        QMenu::item:selected {
-            background-color: #0d6efd;
-            color: white;
-        }
-        QMenu::item:pressed {
-            background-color: #0b5ed7;
-            color: white;
-        }
-        """)
+        more_transformations_menu.setStyleSheet(self.get_submenu_stylesheet())
 
         for action, icon_path in [
         ("Remove Extra Lines", "icons/remove-extra-lines.png"),
@@ -384,6 +508,34 @@ class MainWindow(QMainWindow):
         # pyperclip.copy(original_clipboard)
 
         return new_clipboard
+
+    def ai_action_selected(self, action):
+        """Handle AI Helper menu actions - copy prompt + selected text to clipboard"""
+        copied_text = self.copy_without_clearing_clipboard()
+        
+        if not copied_text:
+            return
+        
+        # Get the prompt for this action
+        prompt = AI_PROMPTS.get(action, "")
+        
+        if prompt:
+            # Combine prompt with selected text
+            final_text = prompt + copied_text
+            
+            # Copy to clipboard
+            pyperclip.copy(final_text)
+            
+            # Show notification
+            logging.info(f"AI Helper: {action} - Text copied to clipboard with prompt")
+            
+            # Optional: Show a brief notification
+            self.tray_icon.showMessage(
+                "AI Helper",
+                f"Prompt ready! Paste in your AI assistant.",
+                QSystemTrayIcon.MessageIcon.Information,
+                2000  # Duration in milliseconds
+            )
 
     def menu_action_selected(self, action):
         if action == "close":
