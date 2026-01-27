@@ -10,6 +10,8 @@ import pyautogui
 import time
 import logging
 from utils import setup_logging, resource_path
+from snippet_db import init_db, get_all_snippets, increment_use_count
+from snippet_dialog import SnippetManagerDialog
 import win32con
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QTextEdit, QPushButton, QApplication, QMainWindow, QSystemTrayIcon, QMenu
 from PyQt6.QtGui import QIcon
@@ -82,6 +84,7 @@ class TextboxNotificationDialog(QDialog):
 
 class ClickSignal(QObject):
     clicked = pyqtSignal(int, int)
+    snippet_triggered = pyqtSignal()
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -92,11 +95,15 @@ class MainWindow(QMainWindow):
         if app:
             app.setStyle('Fusion')  # This helps with custom stylesheet rendering
         
+        init_db()
+        self._snippets_cache = get_all_snippets()
+
         self.initUI()
         self.textboxDialog = None  # Dialog reference
 
         self.click_signal = ClickSignal()
         self.click_signal.clicked.connect(self.show_context_menu)
+        self.click_signal.snippet_triggered.connect(self.show_snippet_quick_paste)
 
         self.key_sequence = []
         self.last_key_time = time.time()
@@ -123,6 +130,8 @@ class MainWindow(QMainWindow):
                 self.tray_icon.setIcon(QIcon(resource_path("icons/icon-yellow.png")))
         elif key == keyboard.Key.shift:
             self.key_sequence.append('shift')
+        elif hasattr(key, 'char') and key.char == 's' and self.key_sequence == ['ctrl', 'ctrl']:
+            self.key_sequence.append('s')
 
         # logger.info("press append keys : " + str(self.key_sequence))
         self.last_key_time = current_time
@@ -133,6 +142,12 @@ class MainWindow(QMainWindow):
             self.click_signal.clicked.emit(x, y)
             self.tray_icon.setIcon(QIcon(resource_path("icons/icon-green.png")))
             logger.info("Open Menu on Release")
+            self.key_sequence.clear()
+
+        if len(self.key_sequence) == 3 and self.key_sequence == ['ctrl', 'ctrl', 's']:
+            self.click_signal.snippet_triggered.emit()
+            self.tray_icon.setIcon(QIcon(resource_path("icons/icon-green.png")))
+            logger.info("Open Snippet Quick Paste on Release")
             self.key_sequence.clear()
  
         if key == keyboard.Key.esc:
@@ -417,6 +432,30 @@ class MainWindow(QMainWindow):
         act_summarize.triggered.connect(lambda: self.ai_action_selected("summarize"))
 
         # ============================================
+        # SNIPPETS SUBMENU
+        # ============================================
+        self.menu.addSeparator()
+        snippet_menu = self.menu.addMenu("Snippets")
+        snippet_menu.setStyleSheet(self.get_submenu_stylesheet())
+
+        if self._snippets_cache:
+            for s in self._snippets_cache:
+                truncated = s["title"][:35]
+                preview = s["content"][:80].replace("\n", " ")
+                act_snip = snippet_menu.addAction(truncated)
+                act_snip.setToolTip(preview)
+                sid = s["id"]
+                content = s["content"]
+                act_snip.triggered.connect(lambda checked, c=content, i=sid: self._paste_snippet(c, i))
+        else:
+            no_snip = snippet_menu.addAction("(No snippets yet)")
+            no_snip.setEnabled(False)
+
+        snippet_menu.addSeparator()
+        manage_act = snippet_menu.addAction("Manage Snippets...")
+        manage_act.triggered.connect(self._open_snippet_manager)
+
+        # ============================================
         # MORE TRANSFORMATIONS SUBMENU (existing)
         # ============================================
         more_transformations_menu = self.menu.addMenu("More Transformations")
@@ -466,6 +505,51 @@ class MainWindow(QMainWindow):
         self.menu.addAction(close_action)
 
         self.menu.exec(QCursor.pos())
+
+    def _paste_snippet(self, content, snippet_id):
+        increment_use_count(snippet_id)
+        self._refresh_snippets_cache()
+        pyperclip.copy(content)
+        pyautogui.hotkey('ctrl', 'v')
+        logging.info(f"Pasted snippet id={snippet_id}")
+
+    def _open_snippet_manager(self):
+        dlg = SnippetManagerDialog(self)
+        dlg.snippets_changed.connect(self._refresh_snippets_cache)
+        result = dlg.exec()
+        # If user clicked "Use", paste the snippet
+        used_content = dlg.get_used_content()
+        if used_content:
+            pyperclip.copy(used_content)
+            pyautogui.hotkey('ctrl', 'v')
+
+    def _refresh_snippets_cache(self):
+        self._snippets_cache = get_all_snippets()
+        # Reset cached menu so it rebuilds with updated snippets next time
+        self.menu = None
+
+    def show_snippet_quick_paste(self):
+        self._snippets_cache = get_all_snippets()
+        menu = QMenu()
+        menu.setStyleSheet(self.get_submenu_stylesheet())
+
+        if self._snippets_cache:
+            for s in self._snippets_cache:
+                truncated = s["title"][:35]
+                preview = s["content"][:80].replace("\n", " ")
+                act = menu.addAction(f"{truncated}  —  {preview}")
+                sid = s["id"]
+                content = s["content"]
+                act.triggered.connect(lambda checked, c=content, i=sid: self._paste_snippet(c, i))
+        else:
+            no_snip = menu.addAction("(No snippets)")
+            no_snip.setEnabled(False)
+
+        menu.addSeparator()
+        manage_act = menu.addAction("Manage Snippets...")
+        manage_act.triggered.connect(self._open_snippet_manager)
+
+        menu.exec(QCursor.pos())
 
     def get_highlighted_text(self):
         win32clipboard.OpenClipboard()
