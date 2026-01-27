@@ -10,7 +10,7 @@ import pyautogui
 import time
 import logging
 from utils import setup_logging, resource_path
-from snippet_db import init_db, get_all_snippets, increment_use_count
+from snippet_db import init_db, get_all_snippets, increment_use_count, add_snippet
 from snippet_dialog import SnippetManagerDialog
 import win32con
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QTextEdit, QPushButton, QApplication, QMainWindow, QSystemTrayIcon, QMenu
@@ -452,6 +452,8 @@ class MainWindow(QMainWindow):
             no_snip.setEnabled(False)
 
         snippet_menu.addSeparator()
+        add_to_snippet_act = snippet_menu.addAction("Add to Snippet")
+        add_to_snippet_act.triggered.connect(self._add_selection_to_snippet)
         manage_act = snippet_menu.addAction("Manage Snippets...")
         manage_act.triggered.connect(self._open_snippet_manager)
 
@@ -512,6 +514,41 @@ class MainWindow(QMainWindow):
         pyperclip.copy(content)
         pyautogui.hotkey('ctrl', 'v')
         logging.info(f"Pasted snippet id={snippet_id}")
+
+    def _add_selection_to_snippet(self):
+        """Add the currently selected text as a new snippet with validation."""
+        import re
+        copied_text = self.copy_without_clearing_clipboard()
+        if not copied_text:
+            return
+
+        # Strip leading/trailing whitespace
+        content = copied_text.strip()
+
+        # Remove non-visible / control characters (keep newlines, tabs, and normal printable chars)
+        content = re.sub(r'[^\S \t\n]', '', content)  # remove non-standard whitespace
+        content = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]', '', content)  # remove control chars
+
+        # Collapse double (or more) spaces into single space
+        content = re.sub(r' {2,}', ' ', content)
+
+        # Final strip after cleanup
+        content = content.strip()
+
+        if not content:
+            QMessageBox.warning(self, "Add to Snippet", "Selected text is empty or contains only invalid characters.")
+            return
+
+        # Auto-generate title from first 36 characters
+        title = content[:36].replace("\n", " ").strip()
+
+        error = add_snippet(title, content)
+        if error:
+            QMessageBox.warning(self, "Add to Snippet", error)
+            return
+
+        self._refresh_snippets_cache()
+        QMessageBox.information(self, "Add to Snippet", f"Snippet \"{title}\" added successfully.")
 
     def _open_snippet_manager(self):
         dlg = SnippetManagerDialog(self)

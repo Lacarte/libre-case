@@ -72,8 +72,11 @@ class AddEditSnippetDialog(QDialog):
         content = self.content_edit.toPlainText().strip()
 
         if not title:
-            QMessageBox.warning(self, "Validation", "Title is required.")
-            return
+            if content:
+                title = content[:36].replace("\n", " ").strip()
+            else:
+                QMessageBox.warning(self, "Validation", "Title is required.")
+                return
         if not content:
             QMessageBox.warning(self, "Validation", "Content is required.")
             return
