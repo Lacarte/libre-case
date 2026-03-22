@@ -13,6 +13,7 @@ from utils import setup_logging, resource_path
 from snippet_db import init_db, get_all_snippets, increment_use_count, add_snippet
 from snippet_dialog import SnippetManagerDialog
 import win32con
+import win32gui
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QTextEdit, QPushButton, QApplication, QMainWindow, QSystemTrayIcon, QMenu
 from PyQt6.QtGui import QIcon
 import os
@@ -266,6 +267,13 @@ class MainWindow(QMainWindow):
         """
 
     def show_context_menu(self, x, y):
+        # Capture the active window BEFORE the menu steals focus
+        try:
+            hwnd = win32gui.GetForegroundWindow()
+            self._pre_menu_window_class = win32gui.GetClassName(hwnd)
+        except Exception:
+            self._pre_menu_window_class = None
+
         # Check if a menu already exists. If it does, bring it to the front instead of creating a new one.
         if hasattr(self, 'menu') and self.menu is not None:
             self.menu.hide()  # Optionally hide the existing menu before showing it again, depending on desired behavior.
@@ -588,6 +596,73 @@ class MainWindow(QMainWindow):
 
         menu.exec(QCursor.pos())
 
+    def _is_explorer_active(self):
+        """Check if the window active BEFORE the menu opened was Explorer or Desktop."""
+        class_name = getattr(self, '_pre_menu_window_class', None)
+        return class_name in ('CabinetWClass', 'ExploreWClass', 'Progman', 'WorkerW')
+
+    def _find_desktop_listview(self):
+        """Find the Desktop's SysListView32 handle."""
+        try:
+            progman = win32gui.FindWindow("Progman", None)
+            if progman:
+                defview = win32gui.FindWindowEx(progman, 0, "SHELLDLL_DefView", None)
+                if defview:
+                    return win32gui.FindWindowEx(defview, 0, "SysListView32", None)
+        except Exception:
+            pass
+        return None
+
+    def _rename_in_explorer(self, action):
+        """Handle file/folder rename in Explorer by re-entering rename mode."""
+        pre_class = getattr(self, '_pre_menu_window_class', None)
+
+        # Desktop needs explicit focus restoration
+        if pre_class in ('Progman', 'WorkerW'):
+            desktop_lv = self._find_desktop_listview()
+            if desktop_lv:
+                win32gui.SetForegroundWindow(desktop_lv)
+                time.sleep(0.3)
+
+        # Press F2 to re-enter rename mode
+        pyautogui.press('f2')
+        time.sleep(0.3)
+
+        # Select all text in the rename box
+        pyautogui.hotkey('ctrl', 'a')
+        time.sleep(0.1)
+
+        # Copy the filename
+        pyautogui.hotkey('ctrl', 'c')
+        time.sleep(0.25)
+
+        filename = pyperclip.paste()
+        if not filename or not filename.strip():
+            logging.warning("Could not get filename from Explorer")
+            return
+
+        filename = filename.strip()
+
+        # Split name and extension, transform only the name
+        name, ext = os.path.splitext(filename)
+        transformed_name = self.transform_text(action, name)
+        result = transformed_name + ext
+
+        # Paste the transformed name back
+        pyperclip.copy(result)
+        pyautogui.hotkey('ctrl', 'v')
+        time.sleep(0.1)
+
+        # Confirm the rename
+        pyautogui.press('enter')
+
+        # Refresh Desktop so the change is visible
+        if pre_class in ('Progman', 'WorkerW'):
+            time.sleep(0.2)
+            pyautogui.press('f5')
+
+        logging.info(f"Explorer rename: '{filename}' -> '{result}'")
+
     def get_highlighted_text(self):
         win32clipboard.OpenClipboard()
         text = ""
@@ -660,7 +735,14 @@ class MainWindow(QMainWindow):
 
     def menu_action_selected(self, action):
         if action == "close":
-            return            
+            return
+
+        # Handle file/folder rename in Explorer
+        case_actions = ["uppercase", "lowercase", "titlecase", "sentence_case", "invert_case", "alternating"]
+        if self._is_explorer_active() and action in case_actions:
+            self._rename_in_explorer(action)
+            return
+
         else:
             copied_text = self.copy_without_clearing_clipboard()
             logging.info(f"Copied text: {copied_text}")
