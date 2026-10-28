@@ -1,11 +1,17 @@
 import sqlite3
 import os
 from utils import resource_path
-
-MAX_SNIPPETS = 10
-MAX_CONTENT_LENGTH = 1400
+from config import get_setting
 
 _DB_PATH = None
+
+
+def get_max_snippets():
+    return get_setting("snippets", "max_snippets")
+
+
+def get_max_content_length():
+    return get_setting("snippets", "max_content_length")
 
 
 def _get_db_path():
@@ -63,11 +69,13 @@ def get_snippet_count():
 
 
 def add_snippet(title, content):
-    if get_snippet_count() >= MAX_SNIPPETS:
-        return "Maximum of 10 snippets reached."
+    max_snippets = get_max_snippets()
+    if get_snippet_count() >= max_snippets:
+        return f"Maximum of {max_snippets} snippets reached."
 
-    if len(content) > MAX_CONTENT_LENGTH:
-        return f"Snippet content exceeds {MAX_CONTENT_LENGTH} characters."
+    max_length = get_max_content_length()
+    if len(content) > max_length:
+        return f"Snippet content exceeds {max_length} characters."
 
     conn = _get_connection()
     try:
@@ -88,8 +96,9 @@ def add_snippet(title, content):
 
 
 def update_snippet(snippet_id, title, content):
-    if len(content) > MAX_CONTENT_LENGTH:
-        return f"Snippet content exceeds {MAX_CONTENT_LENGTH} characters."
+    max_length = get_max_content_length()
+    if len(content) > max_length:
+        return f"Snippet content exceeds {max_length} characters."
 
     conn = _get_connection()
     try:

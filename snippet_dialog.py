@@ -35,7 +35,7 @@ class AddEditSnippetDialog(QDialog):
         layout.addWidget(self.content_edit)
 
         # Character counter
-        self.char_label = QLabel(f"0 / {snippet_db.MAX_CONTENT_LENGTH} characters")
+        self.char_label = QLabel(f"0 / {snippet_db.get_max_content_length()} characters")
         layout.addWidget(self.char_label)
 
         # Buttons
@@ -57,15 +57,16 @@ class AddEditSnippetDialog(QDialog):
     def _on_content_changed(self):
         text = self.content_edit.toPlainText()
         length = len(text)
-        if length > snippet_db.MAX_CONTENT_LENGTH:
+        max_length = snippet_db.get_max_content_length()
+        if length > max_length:
             # Block excess characters
             self.content_edit.blockSignals(True)
             cursor = self.content_edit.textCursor()
-            self.content_edit.setPlainText(text[:snippet_db.MAX_CONTENT_LENGTH])
+            self.content_edit.setPlainText(text[:max_length])
             self.content_edit.setTextCursor(cursor)
             self.content_edit.blockSignals(False)
-            length = snippet_db.MAX_CONTENT_LENGTH
-        self.char_label.setText(f"{length} / {snippet_db.MAX_CONTENT_LENGTH} characters")
+            length = max_length
+        self.char_label.setText(f"{length} / {max_length} characters")
 
     def _on_save(self):
         title = self.title_edit.text().strip()
@@ -172,7 +173,7 @@ class SnippetManagerDialog(QDialog):
             self.list_widget.addItem(item)
 
         total = snippet_db.get_snippet_count()
-        self.status_label.setText(f"{total} / {snippet_db.MAX_SNIPPETS} snippets")
+        self.status_label.setText(f"{total} / {snippet_db.get_max_snippets()} snippets")
         self._update_button_states()
 
     def _on_search(self, text):
