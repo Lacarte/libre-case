@@ -1,0 +1,15 @@
+{
+  "appctl": 1,
+  "id": "libre-case",
+  "name": "Libre-Case",
+  "description": "In-place text case conversion (main.py).",
+  "kind": "tray",
+  "start": { "command": ["cmd.exe", "/c", "{app}\\libre-case-runner.bat"] },
+  "match": [
+    { "exe": "{app}\\*" },
+    { "cmdline": "libre-case-runner.bat" }
+  ],
+  "stop": { "method": "ctrl_c", "timeout": 5 },
+  "autostart": true,
+  "logs": "{app}\\logs\\*"
+}
